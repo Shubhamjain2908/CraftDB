@@ -1,12 +1,15 @@
 package com.craftdb.craftdb.storage;
 
 import com.craftdb.craftdb.engine.LogEntry;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WriteAheadLog implements AutoCloseable {
 
@@ -28,6 +31,21 @@ public class WriteAheadLog implements AutoCloseable {
     // flush() is crucial to ask the OS to write the data from its cache
     // to the disk, ensuring durability.
     outputStream.flush();
+  }
+
+  public List<LogEntry> readAll() throws IOException {
+    List<LogEntry> entries = new ArrayList<>();
+    // A simple implementation. A real DB would use checksums to detect corruption.
+    try (BufferedReader reader = Files.newBufferedReader(logFile, StandardCharsets.UTF_8)) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String[] parts = line.split(",", 2);
+        if (parts.length == 2) {
+          entries.add(new LogEntry(parts[0], parts[1]));
+        }
+      }
+    }
+    return entries;
   }
 
   @Override

@@ -32,7 +32,7 @@ public class DbEngine {
   private final ScheduledExecutorService compactionExecutor =
       Executors.newSingleThreadScheduledExecutor();
 
-  public DbEngine() {
+  public DbEngine(Path dataDir) {
     this.dataDir = Paths.get("data");
     try {
       Files.createDirectories(dataDir); // Ensure the data directory exists
@@ -41,9 +41,18 @@ public class DbEngine {
       throw new RuntimeException("Failed to initialize engine", e);
     }
     this.activeMemtable = new Memtable();
+    try {
+      recover();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to recover from WAL", e);
+    }
     this.frozenMemtable = null; // No frozen memtable initially
     // Schedule the compaction task to run periodically
     compactionExecutor.scheduleAtFixedRate(this::runCompaction, 1, 1, TimeUnit.MINUTES);
+  }
+
+  public DbEngine() { // Default constructor for the main app
+    this(Paths.get("data"));
   }
 
   public void put(String key, String value) {
@@ -108,6 +117,15 @@ public class DbEngine {
     // 3. Check SSTables on disk (we will implement this reader next)
     // For now, return empty if not in memory
     return Optional.empty();
+  }
+
+  private void recover() throws IOException {
+    log.info("Starting recovery from WAL...");
+    List<LogEntry> entries = this.wal.readAll();
+    for (LogEntry entry : entries) {
+      this.activeMemtable.put(entry.key(), entry.value());
+    }
+    log.info("Recovery complete. {} entries loaded into Memtable.", entries.size());
   }
 
   // In the DbEngine class

@@ -6,15 +6,20 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DbEngine {
-  private static final long MEMTABLE_THRESHOLD_BYTES = 1024 * 1024; // 1MB threshold
+  private static final long MEMTABLE_THRESHOLD_BYTES = 1024 * 1024L; // 1MB threshold
   private final Path dataDir;
   private final AtomicLong sstableCounter = new AtomicLong(0);
   private final WriteAheadLog wal;
@@ -22,7 +27,10 @@ public class DbEngine {
   private final ExecutorService flushExecutor = Executors.newSingleThreadExecutor();
   private Memtable activeMemtable;
   private Memtable frozenMemtable;
-
+  // Use a thread-safe list to store paths to our SSTables
+  private final List<Path> sstablePaths = new CopyOnWriteArrayList<>();
+  private final ScheduledExecutorService compactionExecutor =
+      Executors.newSingleThreadScheduledExecutor();
 
   public DbEngine() {
     this.dataDir = Paths.get("data");
@@ -34,6 +42,8 @@ public class DbEngine {
     }
     this.activeMemtable = new Memtable();
     this.frozenMemtable = null; // No frozen memtable initially
+    // Schedule the compaction task to run periodically
+    compactionExecutor.scheduleAtFixedRate(this::runCompaction, 1, 1, TimeUnit.MINUTES);
   }
 
   public void put(String key, String value) {
@@ -68,6 +78,7 @@ public class DbEngine {
       Path sstablePath = dataDir.resolve("sstable-" + newSSTableId + ".db");
       log.info("Flushing memtable to {}", sstablePath);
       SSTableWriter.write(sstablePath, frozenMemtable.getAllEntries());
+      sstablePaths.add(sstablePath); // Add the new SSTable to our list
       log.info("Flush completed successfully for {}", sstablePath);
       // Once flushed, we can clear the frozen memtable
       synchronized (this) {
@@ -97,5 +108,33 @@ public class DbEngine {
     // 3. Check SSTables on disk (we will implement this reader next)
     // For now, return empty if not in memory
     return Optional.empty();
+  }
+
+  // In the DbEngine class
+  private void runCompaction() {
+    // A simple compaction trigger: run if we have more than 3 SSTables.
+    if (sstablePaths.size() <= 3) {
+      return;
+    }
+    try {
+      log.info("Compaction triggered for {} SSTables.", sstablePaths.size());
+      List<Path> sourcesToCompact = new ArrayList<>(sstablePaths);
+      long newSSTableId = sstableCounter.incrementAndGet();
+      Path compactedSSTablePath = dataDir.resolve("sstable-" + newSSTableId + ".db");
+      // Run the compaction
+      Compactor.compact(sourcesToCompact, compactedSSTablePath);
+      // CRITICAL: Atomically update the state.
+      // In a real system, this step is much more complex to ensure crash safety.
+      sstablePaths.removeAll(sourcesToCompact);
+      sstablePaths.add(compactedSSTablePath);
+      // Delete the old, now-obsolete files
+      for (Path oldPath : sourcesToCompact) {
+        Files.delete(oldPath);
+      }
+      log.info("Old SSTables deleted.");
+
+    } catch (IOException e) {
+      log.error("Compaction failed", e);
+    }
   }
 }

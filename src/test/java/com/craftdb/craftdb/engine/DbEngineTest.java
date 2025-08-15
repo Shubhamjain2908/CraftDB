@@ -2,8 +2,13 @@ package com.craftdb.craftdb.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -43,5 +48,37 @@ class DbEngineTest {
     assertThat(found1.get().value()).isEqualTo("value1");
     assertThat(found2).isPresent();
     assertThat(found2.get().value()).isEqualTo("value2");
+  }
+
+  @Test
+  void testConcurrentPuts() throws InterruptedException, IOException {
+    int numThreads = 10;
+    int putsPerThread = 100;
+    int totalPuts = numThreads * putsPerThread;
+    DbEngine engine = new DbEngine(tempDir);
+    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    CountDownLatch latch = new CountDownLatch(totalPuts);
+    // Submit all the put operations from multiple threads
+    for (int i = 0; i < totalPuts; i++) {
+      final int index = i;
+      executor.submit(() -> {
+        try {
+          engine.put("key" + index, "value" + index);
+        } finally {
+          latch.countDown();
+        }
+      });
+    }
+    // Wait for all puts to complete
+    latch.await(10, TimeUnit.SECONDS);
+    executor.shutdown();
+    // Now, verify the data. We can either read from the same engine
+    // or create a new one to test recovery as well.
+    // Let's create a new one to be thorough.
+    DbEngine recoveryEngine = new DbEngine(tempDir);
+    long totalEntries = 0;
+    // A simple way to count entries for now is to read the WAL
+    totalEntries = recoveryEngine.wal.readAll().stream().map(LogEntry::key).distinct().count();
+    assertThat(totalEntries).isEqualTo(totalPuts);
   }
 }

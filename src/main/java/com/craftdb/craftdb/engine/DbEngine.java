@@ -15,6 +15,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -22,7 +24,7 @@ public class DbEngine {
   private static final long MEMTABLE_THRESHOLD_BYTES = 1024 * 1024L; // 1MB threshold
   private final Path dataDir;
   private final AtomicLong sstableCounter = new AtomicLong(0);
-  private final WriteAheadLog wal;
+  public final WriteAheadLog wal;
   // A single-threaded executor to handle flushing in the background
   private final ExecutorService flushExecutor = Executors.newSingleThreadExecutor();
   private Memtable activeMemtable;
@@ -31,6 +33,11 @@ public class DbEngine {
   private final List<Path> sstablePaths = new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService compactionExecutor =
       Executors.newSingleThreadScheduledExecutor();
+
+  // lock for thread-safe access to the memtable and SSTable paths
+  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+  private final Lock readLock = lock.readLock();
+  private final Lock writeLock = lock.writeLock();
 
   public DbEngine(Path dataDir) {
     this.dataDir = Paths.get("data");
@@ -56,6 +63,7 @@ public class DbEngine {
   }
 
   public void put(String key, String value) {
+    writeLock.lock();
     LogEntry entry = new LogEntry(key, value);
     try {
       wal.log(entry);
@@ -66,19 +74,26 @@ public class DbEngine {
       }
     } catch (IOException e) {
       throw new RuntimeException("Failed to write to WAL", e);
+    } finally {
+      writeLock.unlock();
     }
   }
 
-  private synchronized void triggerFlush() {
-    // If there's already a flush in progress, do nothing
-    if (frozenMemtable != null) {
-      return;
+  private void triggerFlush() {
+    writeLock.lock();
+    try {
+      // If there's already a flush in progress, do nothing
+      if (frozenMemtable != null) {
+        return;
+      }
+      log.info("Memtable threshold reached, triggering flush...");
+      frozenMemtable = activeMemtable;
+      activeMemtable = new Memtable();
+      // Submit the flush task to the background thread
+      flushExecutor.submit(this::flushToSSTable);
+    } finally {
+      writeLock.unlock();
     }
-    log.info("Memtable threshold reached, triggering flush...");
-    frozenMemtable = activeMemtable;
-    activeMemtable = new Memtable();
-    // Submit the flush task to the background thread
-    flushExecutor.submit(this::flushToSSTable);
   }
 
   private void flushToSSTable() {
@@ -101,22 +116,27 @@ public class DbEngine {
   }
 
   public Optional<LogEntry> get(String key) {
-    // 1. Check active memtable
-    Optional<LogEntry> entry = activeMemtable.get(key);
-    if (entry.isPresent()) {
-      return entry;
-    }
-    // 2. Check frozen memtable (if one exists)
-    Memtable frozen = this.frozenMemtable; // local reference for thread safety
-    if (frozen != null) {
-      entry = frozen.get(key);
+    readLock.lock();
+    try {
+      // 1. Check active memtable
+      Optional<LogEntry> entry = activeMemtable.get(key);
       if (entry.isPresent()) {
         return entry;
       }
+      // 2. Check frozen memtable (if one exists)
+      Memtable frozen = this.frozenMemtable; // local reference for thread safety
+      if (frozen != null) {
+        entry = frozen.get(key);
+        if (entry.isPresent()) {
+          return entry;
+        }
+      }
+      // 3. Check SSTables on disk (we will implement this reader next)
+      // For now, return empty if not in memory
+      return Optional.empty();
+    } finally {
+      readLock.unlock();
     }
-    // 3. Check SSTables on disk (we will implement this reader next)
-    // For now, return empty if not in memory
-    return Optional.empty();
   }
 
   private void recover() throws IOException {
@@ -130,6 +150,7 @@ public class DbEngine {
 
   // In the DbEngine class
   private void runCompaction() {
+    writeLock.lock();
     // A simple compaction trigger: run if we have more than 3 SSTables.
     if (sstablePaths.size() <= 3) {
       return;
@@ -153,6 +174,8 @@ public class DbEngine {
 
     } catch (IOException e) {
       log.error("Compaction failed", e);
+    } finally {
+      writeLock.unlock();
     }
   }
 }

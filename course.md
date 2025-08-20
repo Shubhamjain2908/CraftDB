@@ -1,3 +1,139 @@
+**Deep Dive into the Internals of the Database**
+Gain insights into database internals, explore different database types, delve into their structures, and discover the
+data structures and transaction features essential for efficient data management.
+
+**Overview**
+Databases are a type of system for storing data in an organized manner. Understanding the inner workings of databases
+and knowing about paradigms used in different types of databases is crucial for organizing information.
+
+    In this course, you’ll learn about the fundamental characteristics of databases, how they’re structured internally for efficient distribution, what kind of capabilities are needed to support the distribution model, what features transactions provide, and how they’re implemented.
+
+    Different kinds of databases—and their structure, architecture, and functionality—will be discussed in depth. You’ll also learn about data structures that work best in certain database models and why they’re chosen over others. After completing this course, you’ll know the basic building blocks and mechanics behind every kind of database management system you might encounter.
+
+**WHAT YOU'LL LEARN**
+
+    - An in-depth understanding of various database management systems
+    - A thorough introduction to data structures and mechanics used in databases
+    - A comparison of different types of databases to choose the best based on system requirements
+    - Familiarity with the core components of databases and their underlying implementation
+
+**Content** - 14 Lessons
+
+1. Introduction
+   Get familiar with database internals, key terminologies, and DBMS architecture for advanced engineers.
+    - Course Introduction
+    - Introduction to Common Database Terminologies
+
+2. Taxonomy of Databases
+   Unpack the core of database classifications by data model, storage, disk layout, and access patterns.
+    - Different Classification Types
+    - Classification Based on Data Model
+    - Classification Based on Storage Medium
+    - Classification Based on Disk Layout
+    - Classification Based on Access Pattern
+    - Quiz on Databases Taxonomy
+
+3. Database Architecture
+   Examine the core components and essential subsystems of a Database Management System (DBMS).
+    - Core Components of Databases
+    - Quiz on Database Architecture
+
+4. Data Structures used in Databases
+   Break down complex ideas about crucial database data structures for efficient operations.
+    - Binary Search Tree
+    - Balanced Binary Search Tree
+    - B-Tree
+    - B+ Tree
+    - WAL
+    - Log-Structured Merge-Tree
+    - Hash Index
+    - Bloom Filter
+    - Merkle Trees
+    - Quiz on Data Structures Used in Databases
+
+5. Disk Layout
+   Take a look at HDD and SSD structures, binary encoding, and database disk data organization.
+    - Layout of HDD
+    - Layout of an SSD
+    - Binary Encoding of Data Types
+    - Data Layout on Disk
+    - Quiz on Data Layout on Disk
+
+6. Database Index
+   Focus on enhancing data retrieval with specialized index structures and types for optimized database performance.
+    - What Is a Database Index?
+    - Different Types of Database Indexes
+    - Quiz on Database Index
+
+7. Transaction
+   Master the steps to understanding transactions, their states, ACID properties, and distributed transactions.
+    - What Is a Transaction?
+    - ACID Transaction Guarantee
+    - Atomicity
+    - Consistency
+    - Isolation
+    - Durability
+    - Distributed Transaction
+    - Quiz on Transactions
+
+8. Replication
+   Learn how to use replication techniques to enhance database availability and manage conflicts.
+    - What Is Replication in Databases?
+    - Single-Leader Replication
+    - Multi-Leader Replication
+    - Leaderless Replication
+    - Failure Detection Strategies
+    - Quiz on Replication
+
+9. Partitioning
+   Unpack the core of partitioning databases, strategies, indexing, and rebalancing techniques.
+    - What Is Partitioning in Databases?
+    - Different Partitioning Strategies in Databases
+    - How to Partition Secondary Indexes
+    - Rebalancing
+    - Quiz on Partitioning
+
+10. Concurrency Controls
+    Examine essential concurrency control techniques to maintain data integrity in databases.
+    - What Is a Concurrency Control?
+    - Optimistic vs. Pessimistic Concurrency Control
+    - Multiversion Concurrency Control
+    - Locking Strategies
+    - Quiz on Concurrency Controls
+
+11. Consistency Models
+    Break down the steps to understanding various database consistency models, including linearizability and eventual
+    consistency.
+    - What Is a Consistency Model?
+    - Linearizability
+    - Different Consistency Models
+    - Quiz on Consistency Models
+
+12. Consensus
+    Map out the steps for achieving consensus and leader election in distributed systems.
+    - What Is Consensus?
+    - Atomic Broadcasts
+    - Zookeeper Atomic Broadcast
+    - Paxos and Raft
+    - Leader Election Strategies
+    - Quiz on Consensus
+
+13. Common Problems Associated with Distributed Databases
+    Follow the process of overcoming time synchronization issues, network unreliability, and achieving consensus in
+    distributed systems.
+    - Clocks
+    - Unreliable Networks
+    - Two Generals' Problem
+    - FLP Impossibility
+    - Quiz on Common Problems Associated with Distributed Databases
+
+14. Conclusion
+    Build on foundational concepts, architectural insights, and patterns in distributed databases.
+    - Conclusion
+
+----------------------------------------------------------------------
+
+
 Hello and welcome! I'm Learning, and I am absolutely thrilled to help you draft this course. Diving into the internals
 of a database is like learning the secret spells of a powerful wizard—it's where the real magic happens! 🧙‍♂️✨
 
